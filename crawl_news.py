@@ -31,7 +31,8 @@ class CrawlSpider_vnexpress(CrawlSpider):
     allowed_domains = ['vnexpress.net']
     start_urls = ['https://vnexpress.net/']
     rules = [Rule(LinkExtractor(allow=['vnexpress.net/.+'],
-                                deny_domains=['shop.vnexpress.net']),
+                                deny_domains=['shop.vnexpress.net',
+                                              'raovat.vnexpress.net']),
                   callback='parse_article', follow=True)]
 
     def parse_article(self, response):
@@ -534,6 +535,49 @@ class CrawlSpider_cafef(CrawlSpider):
                            'published_datetime': art_date}
 
 
+class CrawlSpider_thanhnien(CrawlSpider):
+    name = 'thanhnien'
+    allowed_domains = ['thanhnien.vn']
+    start_urls = ['https://thanhnien.vn/']
+    rules = [Rule(LinkExtractor(allow=['thanhnien.vn/.+'],
+                                deny=['thanhnien.vn/video/.+']),
+                  callback='parse_article', follow=True)]
+
+    def parse_article(self, response):
+        print('Got a response from {}'.format(response.url))
+
+        # Extract the source in case response.url is the url of the article
+        art = response.xpath('//div[@class="pswp-content"]')
+        if art:
+            # Extract the published date
+            art_date = art.xpath('//meta[@property="article:published_time"]/@content')[0].get()
+            art_date = datetime.fromisoformat(art_date.ljust(23, '0')).replace(tzinfo=None)
+            print('Published date: ', art_date)
+
+            # Extract the article information if the published date is within the period of interest
+            if START_DATE <= art_date and \
+                    (END_DATE is None or END_DATE > art_date):
+                # Extract the title of the article
+                art_title = art.xpath('//title/text()').extract()[0]
+
+                # Extract the keywords of the article
+                art_keywords = art.xpath('//meta[@name="news_keywords"]/@content')[0].get()
+
+                # Extract the description of the article
+                art_description = art.xpath('//meta[@name="description"]/@content')[0].get()
+
+                # Check if the interest keywords are in the title
+                # or news keywords or description
+                if exist_keywords(art_title + art_keywords + art_description):
+                    print('Title: ', art_title)
+                    yield {'date': art_date.strftime('%Y-%m-%d'),
+                           'url': response.url,
+                           'title': art_title,
+                           'keywords': art_keywords,
+                           'description': art_description,
+                           'published_datetime': art_date}
+
+
 CRAWLERs = {'vnexpress': CrawlSpider_vnexpress,
             'laodong': CrawlSpider_laodong,
             'vtv': CrawlSpider_vtv,
@@ -543,7 +587,8 @@ CRAWLERs = {'vnexpress': CrawlSpider_vnexpress,
             'dantri': CrawlSpider_dantri,
             'tuoitre': CrawlSpider_tuoitre,
             'vietnamnet': CrawlSpider_vietnamnet,
-            'cafef': CrawlSpider_cafef}
+            'cafef': CrawlSpider_cafef,
+            'thanhnien': CrawlSpider_thanhnien}
 # ------------------------------------------------------------------------------
 # Main function
 # ------------------------------------------------------------------------------
